@@ -1,28 +1,50 @@
 #ifndef SERVER_H
 #define SERVER_H
 
+#include "IPPortCoder.h"
+#include "defaultnetworkconfiguration.h"
+#include "game.h"
+#include "playerMessage.h"
 #include <QTcpServer>
 #include <QTcpSocket>
-#include <QList>
+#include <QObject>
 
-class Server : public QObject
-{
+class Server : public QObject {
     Q_OBJECT
 
 public:
     explicit Server(QObject *parent = nullptr);
-    ~Server();
 
-    void startServer(quint16 port);
+    bool startServer(quint16 port);
+
+signals:
+    void outputDebugText(QString debugText);
+    void outputServerIdText(QString debugText);
+
 
 private slots:
-    void newConnection();
-    void readData();
-    void clientDisconnected();
+    void onNewConnection();
+    void onReadyRead();
+    void onClientDisconnected();
 
 private:
-    QTcpServer *tcpServer;
-    QList<QTcpSocket*> clients;  // Список подключенных клиентов
+
+    Game game;
+
+    DefaultNetworkConfiguration  defaultNetworkConfiguration;
+    IPPortCoder ipPortCoder;
+
+    QTcpServer *server;
+    QList<QTcpSocket *> clients;
+    QList<PlayerMessage> playerMessages;
+
+    QTcpSocket* getFirstAnotherSocket(QTcpSocket* excludedClient);
+    QString getMessageBySocket(QTcpSocket* socket);
+
+    bool gameIsReady();
+    void addPlayerMessage(const quint16 &port, const QString &messageText);
+    void sendMessageToAllClients(const QString& messageText);
+    void sendMessageToClient(QTcpSocket *socket, const QString& messageText);
 };
 
 #endif // SERVER_H

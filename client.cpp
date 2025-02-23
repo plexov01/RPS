@@ -1,32 +1,37 @@
 #include "client.h"
 #include <QDebug>
 
-Client::Client(QObject *parent) : QObject(parent), socket(new QTcpSocket(this)) {
+Client::Client(QObject *parent) : QObject(parent) {
+    socket = new QTcpSocket(this);
+
     connect(socket, &QTcpSocket::connected, this, &Client::onConnected);
-    connect(socket, &QTcpSocket::disconnected, this, &Client::onDisconnected);
     connect(socket, &QTcpSocket::readyRead, this, &Client::onReadyRead);
 }
 
-void Client::connectToServer(const QString &host, quint16 port) {
-    socket->connectToHost(host, port);
+//Пытаемся подключиться к серверу
+bool Client::tryConnectToServer(QHostAddress &hostAdress, quint16 port) {
+    socket->connectToHost(hostAdress, port);
+
+    if (socket->waitForConnected(1000)) {  // Ждем 1 секунду
+        return true;
+    } else {
+        emit outputDebugText("Connection error: " + socket->errorString());
+        return false;
+    }
 }
 
-void Client::sendData(const QByteArray &data) {
-    if (socket->state() == QTcpSocket::ConnectedState) {
-        socket->write(data);
+void Client::sendMessage(const QString &message) {
+    if (socket->state() == QAbstractSocket::ConnectedState) {
+        socket->write(message.toUtf8());
     }
 }
 
 void Client::onConnected() {
-    qDebug() << "Connected to server!";
-    sendData("Hello from client");
-}
-
-void Client::onDisconnected() {
-    qDebug() << "Disconnected from server!";
+    emit outputDebugText("Connected to server!");
 }
 
 void Client::onReadyRead() {
     QByteArray data = socket->readAll();
-    qDebug() << "Received from server:" << data;
+
+    emit outputMainText(data);
 }

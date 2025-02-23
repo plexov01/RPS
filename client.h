@@ -4,18 +4,22 @@
 #include <QTcpSocket>
 #include <QObject>
 
-class Client : public QObject
-{
+class Client : public QObject {
     Q_OBJECT
 
 public:
     explicit Client(QObject *parent = nullptr);
-    void connectToServer(const QString &host, quint16 port);
-    void sendData(const QByteArray &data);
+    bool tryConnectToServer(QHostAddress &hostAdress, quint16 port);
+
+signals:
+    void outputDebugText(QString debugText);
+    void outputMainText(QString debugText);
+
+public slots:
+    void sendMessage(const QString &message);
 
 private slots:
     void onConnected();
-    void onDisconnected();
     void onReadyRead();
 
 private:
