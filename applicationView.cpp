@@ -49,6 +49,26 @@ void ApplicationView::switchToWindowByName(const QString &windowName) {
     qDebug() << "Window not found: " << windowName;  // Вывод в отладку, если окно не найдено
 }
 
+void ApplicationView::setMainText(QString string)
+{
+    ui->label->setText(string);
+}
+
+void ApplicationView::setDebugText(QString string)
+{
+    ui->debugLabel->setText(string);
+}
+
+void ApplicationView::setServerIdText(QString string)
+{
+    ui->textServerID->setText(string);
+}
+
+void ApplicationView::switchToGameView()
+{
+    switchToWindowByName("game");
+}
+
 void ApplicationView::createGame_released()
 {
     Server *server = new Server();
@@ -64,15 +84,12 @@ void ApplicationView::createGame_released()
 
     if(server->startServer(port)){
         switchToWindowByName("server");
-
     }
 
 }
 
-
 void ApplicationView::joinGame_released()
 {
-
     quint16 port;
     QString ip;
     QString textLineEdit = ui->lineEdit->text();
@@ -89,34 +106,18 @@ void ApplicationView::joinGame_released()
 
     connect(client, &Client::outputDebugText, this, &ApplicationView::setDebugText);
     connect(client, &Client::outputMainText, this, &ApplicationView::setMainText);
+    connect(client, &Client::canSwitchToGameView, this, &ApplicationView::switchToGameView);
 
-
-
-    if(client->tryConnectToServer(address, port)){
-        switchToWindowByName("game");
-    }
+    client->tryConnectToServer(address, port);
+    // if(){
+    //     switchToWindowByName("game");
+    // }
 
 }
 
 void ApplicationView::lineEditTextChanged(const QString &arg1)
 {
     ui->lineEdit->setText(arg1.toUpper());
-}
-
-
-void ApplicationView::setMainText(QString string)
-{
-    ui->label->setText(string);
-}
-
-void ApplicationView::setDebugText(QString string)
-{
-    ui->debugLabel->setText(string);
-}
-
-void ApplicationView::setServerIdText(QString string)
-{
-    ui->textServerID->setText(string);
 }
 
 
@@ -130,7 +131,6 @@ void ApplicationView::paper_released()
 {
     emit buttonPressed("Paper");
 }
-
 
 void ApplicationView::scissors_released()
 {

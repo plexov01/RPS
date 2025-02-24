@@ -1,18 +1,21 @@
 #ifndef APPLICATIONVIEW_H
 #define APPLICATIONVIEW_H
 
+#include <QWidget>
+#include "ipPortCoder.h"
+
 class Client;
 class Server;
-#include "ipPortCoder.h"
-#include <QWidget>
 
 namespace Ui {
 class ApplicationView;
 }
-
+///Ui приложения
 class ApplicationView : public QWidget
 {
     Q_OBJECT
+signals:
+    void buttonPressed(QString nameButton);
 
 public:
     explicit ApplicationView(QWidget *parent = nullptr);
@@ -20,18 +23,14 @@ public:
 
     void switchToWindowByName(const QString &windowName);
 
-    void setServer(Server server);
-    void setClient(Client client);
-
-signals:
-    void buttonPressed(QString nameButton);
-
 public slots:
     void setMainText(QString string);
     void setDebugText(QString string);
     void setServerIdText(QString string);
+    void switchToGameView();
 
 private slots:
+
     void createGame_released();
 
     void joinGame_released();

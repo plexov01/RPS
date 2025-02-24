@@ -4,7 +4,6 @@
 Client::Client(QObject *parent) : QObject(parent) {
     socket = new QTcpSocket(this);
 
-    connect(socket, &QTcpSocket::connected, this, &Client::onConnected);
     connect(socket, &QTcpSocket::readyRead, this, &Client::onReadyRead);
 }
 
@@ -26,12 +25,14 @@ void Client::sendMessage(const QString &message) {
     }
 }
 
-void Client::onConnected() {
-    emit outputDebugText("Connected to server!");
-}
-
 void Client::onReadyRead() {
     QByteArray data = socket->readAll();
+    if(data != "Server is full!"){
+        emit outputMainText(data);
+        emit canSwitchToGameView();
+        emit outputDebugText("Connected to server!");
+    }else{
+        emit outputDebugText("Error: Server already full!");
+    }
 
-    emit outputMainText(data);
 }

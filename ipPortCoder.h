@@ -3,6 +3,7 @@
 
 #include <QString>
 
+//Класс кодирования и раскодирования ip и port
 class IPPortCoder {
 public:
     // Кодирует IP-адрес и порт в строку символов

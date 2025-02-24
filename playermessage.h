@@ -1,10 +1,10 @@
 #ifndef PLAYERMESSAGE_H
 #define PLAYERMESSAGE_H
 
-
 #include <QString>
 #include <qtcpsocket.h>
 
+//Класс сообщения игрока
 class PlayerMessage {
 public:
     PlayerMessage(const quint16 port, const QString message);

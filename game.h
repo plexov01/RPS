@@ -4,6 +4,7 @@
 #include <QString>
 #include <QHostAddress>
 
+//Класс игры
 class Game
 {
 public:

@@ -1,13 +1,13 @@
 #include "server.h"
 #include <QDebug>
 
-
 Server::Server(QObject *parent) : QObject(parent) {
     server = new QTcpServer(this);
 
     connect(server, &QTcpServer::newConnection, this, &Server::onNewConnection);
 }
 
+//Запустить сервер на port
 bool Server::startServer(quint16 port) {
 
     if (server->listen(QHostAddress::Any, port)) {
@@ -25,17 +25,24 @@ bool Server::startServer(quint16 port) {
     }
 }
 
+//Клиент подключился
 void Server::onNewConnection() {
     QTcpSocket *clientSocket = server->nextPendingConnection();
+
+    connect(clientSocket, &QTcpSocket::readyRead, this, &Server::onReadyRead);
+    connect(clientSocket, &QTcpSocket::disconnected, this, &Server::onClientDisconnected);
 
     if(clients.size() < 2){
         clients.append(clientSocket);
     } else{
+        // Отклоняем подключение, если уже есть два клиента
+        sendMessageToClient(clientSocket, "Server is full!");
+
+        clientSocket->disconnectFromHost();
+        clientSocket->deleteLater();
+        qDebug() << "Rejected new connection: Server is full.";
         return;
     }
-
-    connect(clientSocket, &QTcpSocket::readyRead, this, &Server::onReadyRead);
-    connect(clientSocket, &QTcpSocket::disconnected, this, &Server::onClientDisconnected);
 
     qDebug() << "New client connected!";
 
@@ -45,17 +52,16 @@ void Server::onNewConnection() {
         sendMessageToAllClients("There are not enough players to play! \n  Wait ...");
     }
 
-
 }
 
+//Клиент передал данные
 void Server::onReadyRead() {
     QTcpSocket *thisSocket = qobject_cast<QTcpSocket *>(sender());
     if (!thisSocket) return;
-    QTcpSocket *anotherSocket;
+    QTcpSocket *anotherSocket = nullptr;
 
     QString serverResponseToThisSocket;
     QString serverResponseToAnotherSocket;
-
 
     QByteArray message = thisSocket->readAll();
     QString messageString = QString::fromUtf8(message);
@@ -66,21 +72,20 @@ void Server::onReadyRead() {
         serverResponseToThisSocket = "Please, wait for another player!";
     }else{
         anotherSocket = getFirstAnotherSocket(thisSocket);
-
         serverResponseToThisSocket = "Selected: "+ message + "\n\nWait for choice another player!";
         serverResponseToAnotherSocket = "Another player already made choice!\n Do your choice!";
-
     }
 
+    //Добавление новго сообщения
+    UpdatePlayerMessage(socketPort, messageString);
 
-    addPlayerMessage(socketPort, messageString);
-
+    //Если игроки подключились и сделали выбор - определяем победителя
     if(playerMessages.size() == clients.size() && gameIsReady()){
         Game::Choice thisSocketChoice = Game::stringToChoice(message);
         Game::Choice anotherSocketChoice = Game::stringToChoice(getMessageBySocket(anotherSocket));
         Game::Choice winnerChoice = Game::getWinner(thisSocketChoice, anotherSocketChoice);
 
-        qDebug() <<thisSocketChoice<<anotherSocketChoice<<winnerChoice;
+        qDebug()<<thisSocketChoice<<anotherSocketChoice<<winnerChoice;
 
         if(winnerChoice == Game::Choice::Invalid){
             serverResponseToThisSocket = "Draw! ";
@@ -103,40 +108,16 @@ void Server::onReadyRead() {
         }
     }
 
-
+    //Отправляем клиентам сообщение о текущем статусе игры
     sendMessageToClient(thisSocket, serverResponseToThisSocket);
 
     if(anotherSocket){
         sendMessageToClient(anotherSocket, serverResponseToAnotherSocket);
     }
 
-
 }
 
-
-void Server::addPlayerMessage(const quint16 &port, const QString &messageText) {
-    // Ищем существующее сообщение этого клиента
-    bool messageFound = false;
-    for (PlayerMessage playerMessage : playerMessages) {
-        if (playerMessage.getPort() == port) {
-            // Если сообщение найдено, обновляем его
-            playerMessage.setMessage(messageText);
-            messageFound = true;
-            qDebug() << "Message updated for client:" << port<<playerMessage.getMessage() ;
-
-        }
-
-    }
-
-    // Если сообщение не найдено, создаем новое сообщение и добавляем в список
-    if (!messageFound) {
-        // PlayerMessage newPlayerMessage(port, messageText);
-        playerMessages.append(PlayerMessage(port, messageText));
-        qDebug() << "New message added for client:" << port;
-    }
-}
-
-
+//Клиент отключился
 void Server::onClientDisconnected() {
     QTcpSocket *clientSocket = qobject_cast<QTcpSocket *>(sender());
     if (!clientSocket) return;
@@ -155,10 +136,35 @@ void Server::onClientDisconnected() {
         }
     }
 
-
     sendMessageToAllClients("Another player leaved game!\n There are not enough players to play! \n  Wait ...");
 }
 
+///Добавить сообщение игрока
+void Server::UpdatePlayerMessage(const quint16 &port, const QString &messageText) {
+    // Ищем существующее сообщение этого клиента
+    bool messageFound = false;
+    for (PlayerMessage playerMessage : playerMessages) {
+        if (playerMessage.getPort() == port) {
+            // Если сообщение найдено, обновляем его
+            playerMessage.setMessage(messageText);
+            messageFound = true;
+            qDebug() << "Message updated for client: " << port<< " Message: "<<playerMessage.getMessage();
+        }
+    }
+
+    // Если сообщение не найдено, создаем новое сообщение и добавляем в список
+    if (!messageFound) {
+        playerMessages.append(PlayerMessage(port, messageText));
+        qDebug() << "New message added for client:" << port;
+    }
+}
+
+///Игра может начаться
+bool Server::gameIsReady(){
+    return clients.size() == 2;
+}
+
+//Получить любой сокет отличный от данного
 QTcpSocket* Server::getFirstAnotherSocket(QTcpSocket* excludedClient) {
     // Проходим по всем клиентам
     for (QTcpSocket* client : std::as_const(clients)) {
@@ -170,6 +176,7 @@ QTcpSocket* Server::getFirstAnotherSocket(QTcpSocket* excludedClient) {
     return nullptr;  // Если все клиенты исключены, возвращаем nullptr
 }
 
+//Получить сообщение клиента по его сокету
 QString Server::getMessageBySocket(QTcpSocket* socket) {
     for (PlayerMessage playerMessage : playerMessages) {
         if (playerMessage.getPort() == socket->peerPort()) {
@@ -177,10 +184,6 @@ QString Server::getMessageBySocket(QTcpSocket* socket) {
         }
     }
     return ""; // Если не нашли, возвращаем пустую строку
-}
-
-bool Server::gameIsReady(){
-    return clients.size() == 2;
 }
 
 // Отправляем сообщение всем клиентам
@@ -192,6 +195,7 @@ void Server::sendMessageToAllClients(const QString& messageText){
     }
 
 }
+
 //Отправляем сообщение клиенту
 void Server::sendMessageToClient(QTcpSocket *socket, const QString& messageText){
     if (socket && socket->state() == QAbstractSocket::ConnectedState) {

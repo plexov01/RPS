@@ -3,6 +3,7 @@
 
 #include <QObject>
 
+//Класс конфигурации сети по умолчанию
 class DefaultNetworkConfiguration
 {
 public:
